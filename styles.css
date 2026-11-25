@@ -207,3 +207,41 @@ h3 { margin: 16px 0 8px; font-size: 17px; }
 .chip.fiado { background: #ffedd5; color: #9a3412; }
 .seg { overflow-x: auto; max-width: 100%; }
 .seg button { white-space: nowrap; padding: 8px 10px; flex: 1 0 auto; }
+
+/* Tres apps en una: pedidos, repartidor, dueño */
+body:not([data-modo=dueno]) .solo-dueno { display: none !important; }
+.tabs button[hidden] { display: none; }
+.tabs em { font-style: normal; }
+.brand { cursor: pointer; border-radius: 12px; }
+.brand:focus-visible { outline: 3px solid var(--celeste); outline-offset: 4px; }
+.apps { display: flex; flex-wrap: wrap; gap: 8px; }
+body[data-modo=dueno] .stats, body[data-modo=dueno] #v-pedidos .banner { display: none; }
+
+/* Mapa: siguiente entrega (la más cercana) */
+body[data-modo=pedidos] .map-ctrl { top: 10px; bottom: auto; left: auto; right: 10px; width: auto; flex-direction: column; align-items: flex-end; }
+body[data-modo=pedidos] .map-aviso { right: 190px; }
+.siguiente { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 600; background: var(--card); border: 1px solid var(--borde); border-top: 5px solid var(--celeste); border-radius: 16px; padding: 10px 12px; box-shadow: 0 -4px 18px rgba(5, 10, 48, .25); display: grid; gap: 4px; max-height: 55%; overflow: auto; }
+.siguiente h3 { margin: 0; font-size: 20px; }
+.siguiente .cab { display: flex; justify-content: space-between; gap: 8px; }
+.siguiente .acciones { margin-top: 4px; }
+
+/* Gráficas del dueño */
+:root { --s1: light-dark(#1756a9, #5b8fe0); --s2: light-dark(#2fa4dc, #2bb3a0); }
+.grafica { background: var(--card); border: 1px solid var(--borde); border-radius: 14px; padding: 4px 12px 8px; margin-top: 12px; }
+.grafica h3 { margin: 10px 0 2px; }
+.grafica .fig { position: relative; height: 220px; margin-top: 6px; }
+.grafica .fig svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.fig .s1 { fill: var(--s1); } .fig .s2 { fill: var(--s2); }
+.fig .grid { stroke: var(--borde); stroke-width: 1; }
+.fig .eje { fill: var(--suave); font: 600 11px Nunito, system-ui, sans-serif; }
+.fig .eje.fuerte { fill: var(--ink); font-weight: 800; }
+.fig .valor { fill: var(--ink); font: 800 12px Nunito, system-ui, sans-serif; }
+.fig g:hover path { opacity: .8; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; margin-top: 4px; }
+.leyenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.leyenda i.s1 { background: var(--s1); } .leyenda i.s2 { background: var(--s2); }
+.kpi small { display: block; font-size: 12px; font-weight: 800; margin-top: 2px; }
+.sube { color: var(--ok); } .baja { color: var(--peligro); }
+@media (prefers-color-scheme: dark) { .sube { color: #4ade80; } .baja { color: #f87171; } }
+.tip { position: fixed; z-index: 3000; background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 700; padding: 6px 10px; border-radius: 8px; pointer-events: none; white-space: nowrap; }
+body[data-modo=dueno][data-rol=repartidor] .tabs { display: none; }

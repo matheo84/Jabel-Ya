@@ -1,10 +1,12 @@
 /* Service worker: permite abrir la app sin internet.
    Cambia VERSION cada vez que subas cambios para que los celulares se actualicen. */
-const VERSION = 'jabelya-v4';
+const VERSION = 'jabelya-v6';
 const ARCHIVOS = [
   './', 'index.html', 'styles.css', 'app.js', 'db.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'assets/gota.png', 'assets/logo.jpg',
   'assets/stickers/en-camino.webp', 'assets/stickers/gracias.webp', 'assets/stickers/con-gusto.webp', 'assets/stickers/a-la-orden.webp',
+  'dueno/', 'dueno/manifest.webmanifest',
+  'icons/dueno-192.png', 'icons/dueno-512.png',
   'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css',
 ];
 

@@ -9,6 +9,12 @@
   const fecha = (t) => new Date(t).toLocaleString('es-GT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
   const CENTRO_GT = [14.6349, -90.5069];
   const NEGOCIO = 'Jabel Ya´';
+  // Cada página dice qué app es: 'pedidos' (index.html, también la usa el repartidor) o 'dueno' (dueno/)
+  const MODO = ['pedidos', 'dueno'].includes(window.APP_MODO) ? window.APP_MODO : 'pedidos';
+  const VISTAS = { pedidos: ['pedidos', 'nuevo', 'mapa', 'clientes', 'ajustes'], dueno: ['reportes', 'cobros', 'usuarios', 'ajustes'] }[MODO];
+  const INICIO = VISTAS[0];
+  let miPos = null;
+  document.body.dataset.modo = MODO;
 
   let clientes = [];
   let pedidos = [];
@@ -36,6 +42,8 @@
   }
 
   function ubicacionActual() {
+    // Si el GPS del mapa ya está activo y es reciente, se usa esa posición (más rápido).
+    if (miPos && Date.now() - miPos.t < 20000) return Promise.resolve({ lat: miPos.lat, lng: miPos.lng, precision: miPos.precision });
     return new Promise((ok, mal) => {
       if (!navigator.geolocation) return mal(new Error('Este celular no permite GPS en el navegador.'));
       navigator.geolocation.getCurrentPosition(
@@ -58,20 +66,30 @@
 
   /* ---------- Navegación ---------- */
   function mostrar(vista) {
-    if (rol() === 'repartidor' && (vista === 'nuevo' || vista === 'reportes')) vista = 'pedidos';
+    if (vista !== 'entrar' && !VISTAS.includes(vista)) vista = INICIO;
+    if (rol() === 'repartidor' && ['nuevo', 'reportes', 'cobros', 'usuarios'].includes(vista)) vista = MODO === 'dueno' ? 'ajustes' : INICIO;
     document.body.classList.toggle('sin-sesion', vista === 'entrar');
     $$('.view').forEach((v) => { v.hidden = v.id !== 'v-' + vista; });
     $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === vista));
+    if (vista !== 'mapa' && $('#siguiente')) $('#siguiente').hidden = true;
     if (vista === 'mapa') abrirMapa();
     if (vista === 'clientes') pintarClientes();
     if (vista === 'pedidos') pintarPedidos();
-    if (vista === 'ajustes') { $('#form-ajustes').precio.value = ajustes.precio; pintarCuenta(); pintarInstalar(); if (rol() === 'admin' && conectado()) cargarUsuarios(); }
-    if (vista === 'reportes') pintarReportes();
+    if (vista === 'ajustes') { $('#form-ajustes').precio.value = ajustes.precio; pintarCuenta(); pintarInstalar(); }
+    if (vista === 'reportes' || vista === 'cobros') pintarReportes();
+    if (vista === 'usuarios' && conectado()) cargarUsuarios();
     if (vista === 'entrar') prepararEntrar();
     if (vista === 'nuevo') { if (!$('#form-pedido').id.value) limpiarPedido(); pintarFrecuentes(); }
     $('main').scrollTop = 0;
   }
-  $$('.tabs button').forEach((b) => b.addEventListener('click', () => mostrar(b.dataset.view)));
+  $$('.tabs button').forEach((b) => {
+    b.hidden = !b.dataset.modo.split(' ').includes(MODO);
+    b.addEventListener('click', () => mostrar(b.dataset.view));
+  });
+  $('#app-nombre').textContent = { pedidos: 'Agua pura, vida sana', dueno: 'App del dueño' }[MODO];
+  const irAjustes = () => { if (!$('#v-entrar').hidden) return; mostrar('ajustes'); };
+  $('#brand').addEventListener('click', irAjustes);
+  $('#brand').addEventListener('keydown', (e) => { if (e.key === 'Enter') irAjustes(); });
 
   function medirEncabezado() {
     document.documentElement.style.setProperty('--map-top', $('.top').offsetHeight + 'px');
@@ -104,6 +122,7 @@
     let lista = pedidos.filter((p) => filtro === 'todos' || (filtro === 'cobrar' ? p.estado === 'entregado' && !p.pagado : p.estado === filtro));
     if (q) lista = lista.filter((p) => { const c = clientePor(p.clienteId); return [c.nombre, c.direccion, c.zona, c.referencia, c.telefono].join(' ').toLowerCase().includes(q); });
     lista.sort((a, b) => filtro === 'entregado' || filtro === 'cobrar' ? b.entregadoEn - a.entregadoEn : a.creado - b.creado);
+    if (MODO === 'pedidos' && miPos && filtro === 'pendiente') lista.sort((a, b) => (distA(clientePor(a.clienteId)) ?? 1e9) - (distA(clientePor(b.clienteId)) ?? 1e9));
     const ul = $('#lista-pedidos');
     if (!lista.length) {
       const sinNada = !pedidos.length && !clientes.length;
@@ -116,8 +135,10 @@
       const c = clientePor(p.clienteId);
       const ent = p.estado === 'entregado';
       const fiado = ent && !p.pagado;
+      const dk = ent ? null : distA(c);
       return `<li class="item ${ent ? (fiado ? 'fiado' : 'entregado') : ''}" data-id="${esc(p.id)}">
         <div class="cab"><h3>${esc(c.nombre)}</h3><span class="precio">${Q(p.total)}</span></div>
+        ${dk != null ? `<div class="meta">📍 a ${textoDist(dk)} de ti</div>` : ''}
         <div>${esc(p.cantidad)} × ${esc(p.producto)} <span class="meta">(${Q(p.precio)} c/u)</span></div>
         ${c.direccion || c.zona || c.referencia ? `<div class="meta">${esc([c.direccion, c.zona].filter(Boolean).join(', '))}${c.referencia ? ' · ' + esc(c.referencia) : ''}</div>` : ''}
         ${p.notas ? `<div class="meta">📝 ${esc(p.notas)}</div>` : ''}
@@ -277,6 +298,7 @@
       pintarMapa(true);
     } else { pintarMapa(false); }
     setTimeout(() => mapa.invalidateSize(), 50);
+    if (MODO === 'pedidos') { pintarSiguiente(); if (vigilancia == null) seguirGps(true); }
   }
   $('#chk-todos').addEventListener('change', () => pintarMapa(true));
 
@@ -336,18 +358,23 @@
     capaCasas.eachLayer((m) => { if (m.clienteId === c.id) m.openPopup(); });
   }
 
-  $('#btn-ubicarme').addEventListener('click', () => {
+  let ultimaPinta = 0;
+  function seguirGps(silencioso) {
     if (!navigator.geolocation) return toast('Este celular no permite GPS en el navegador.');
     if (vigilancia != null) { navigator.geolocation.clearWatch(vigilancia); }
-    toast('Buscando tu ubicación…');
+    if (!silencioso) toast('Buscando tu ubicación…');
     let primera = true;
     vigilancia = navigator.geolocation.watchPosition((p) => {
       const ll = [p.coords.latitude, p.coords.longitude];
+      miPos = { lat: ll[0], lng: ll[1], precision: Math.round(p.coords.accuracy), t: Date.now() };
+      if (Date.now() - ultimaPinta > 15000 || primera) { ultimaPinta = Date.now(); pintarSiguiente(); if (MODO === 'pedidos' && !$('#v-pedidos').hidden) pintarPedidos(); }
+      if (!mapa) return;
       if (!marcadorYo) marcadorYo = L.marker(ll, { icon: L.divIcon({ className: '', html: '<div class="pin yo"></div>', iconSize: [20, 20], iconAnchor: [10, 10] }), zIndexOffset: 1000 }).addTo(mapa).bindPopup('Estás aquí');
       else marcadorYo.setLatLng(ll);
       if (primera) { mapa.setView(ll, 16); primera = false; }
-    }, (e) => toast(e.code === 1 ? 'Permiso de ubicación denegado.' : 'No se pudo obtener tu ubicación.'), { enableHighAccuracy: true, maximumAge: 5000 });
-  });
+    }, (e) => toast(e.code === 1 ? 'Permiso de ubicación denegado. Actívalo para ver tu posición.' : 'No se pudo obtener tu ubicación.'), { enableHighAccuracy: true, maximumAge: 5000 });
+  }
+  $('#btn-ubicarme').addEventListener('click', () => seguirGps(false));
 
   /* ---------- Clientes / casas ---------- */
   $('#buscar-cliente').addEventListener('input', pintarClientes);
@@ -538,7 +565,7 @@
       for (const c of d.clientes) await guardarCambio('clientes', c);
       for (const p of d.pedidos) await guardarCambio('pedidos', p);
       if (d.ajustes) { Object.assign(ajustes, d.ajustes); try { localStorage.setItem('jabelya-ajustes', JSON.stringify(ajustes)); } catch (err) { /* */ } }
-      await cargar(); toast('Copia importada ✓'); mostrar('pedidos');
+      await cargar(); toast('Copia importada ✓'); mostrar(INICIO);
     } catch (err) { toast('Ese archivo no es una copia válida de Jabel Ya´'); }
   });
 
@@ -672,6 +699,7 @@
 
   function aplicarRol() {
     document.body.dataset.rol = rol();
+    if (MODO === 'dueno' && rol() !== 'admin') setTimeout(() => toast('Esta app es solo para el dueño. Entra con un usuario administrador.'), 300);
     $('#usuarios-box').hidden = !(conectado() && rol() === 'admin');
   }
 
@@ -711,7 +739,7 @@
       guardarLS('jabelya-sheets', sheets);
       modoLocal = false; guardarLS('jabelya-local', false);
       if (apiEnlace) history.replaceState(null, '', location.pathname);
-      aplicarRol(); refrescar(); mostrar('pedidos');
+      aplicarRol(); refrescar(); mostrar(INICIO);
       toast(`Bienvenido, ${r.nombre}`);
       sincronizar();
     } catch (er) {
@@ -723,7 +751,7 @@
 
   $('#btn-local').addEventListener('click', () => {
     modoLocal = true; guardarLS('jabelya-local', true);
-    aplicarRol(); mostrar('pedidos');
+    aplicarRol(); mostrar(INICIO);
   });
 
   async function salir(forzado) {
@@ -823,7 +851,7 @@
     } catch (er) { toast(er.message); }
   });
   $('#btn-enlace').addEventListener('click', async () => {
-    const enlace = `${location.origin}${location.pathname}?api=${encodeURIComponent(sheets.url)}`;
+    const enlace = `${new URL('./', document.baseURI).href}?api=${encodeURIComponent(sheets.url)}`;
     try { await navigator.clipboard.writeText(enlace); toast('Enlace copiado. Envíalo al repartidor por WhatsApp.'); }
     catch (er) { $('#instalar-ayuda').textContent = enlace; toast('Copia el enlace que aparece en “Instalar en el celular”.'); }
   });
@@ -971,21 +999,21 @@
   /* ---------- Reportes ---------- */
   let repPeriodo = 'dia', repDesplaza = 0;
   const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-  function rangoReporte() {
+  function rangoReporte(desp = repDesplaza) {
     const h = new Date(); h.setHours(0, 0, 0, 0);
     let ini, fin, titulo;
     if (repPeriodo === 'dia') {
-      ini = new Date(h); ini.setDate(ini.getDate() + repDesplaza);
+      ini = new Date(h); ini.setDate(ini.getDate() + desp);
       fin = new Date(ini); fin.setDate(fin.getDate() + 1);
-      titulo = repDesplaza === 0 ? 'Hoy' : repDesplaza === -1 ? 'Ayer' : ini.toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'short' });
+      titulo = desp === 0 ? 'Hoy' : desp === -1 ? 'Ayer' : ini.toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'short' });
     } else if (repPeriodo === 'semana') {
-      ini = new Date(h); ini.setDate(ini.getDate() - ((ini.getDay() + 6) % 7) + repDesplaza * 7); // lunes
+      ini = new Date(h); ini.setDate(ini.getDate() - ((ini.getDay() + 6) % 7) + desp * 7); // lunes
       fin = new Date(ini); fin.setDate(fin.getDate() + 7);
       const ult = new Date(fin); ult.setDate(ult.getDate() - 1);
       const f = (d) => d.toLocaleDateString('es-GT', { day: 'numeric', month: 'short' });
-      titulo = repDesplaza === 0 ? `Esta semana (${f(ini)} – ${f(ult)})` : `${f(ini)} – ${f(ult)}`;
+      titulo = desp === 0 ? `Esta semana (${f(ini)} – ${f(ult)})` : `${f(ini)} – ${f(ult)}`;
     } else {
-      ini = new Date(h.getFullYear(), h.getMonth() + repDesplaza, 1);
+      ini = new Date(h.getFullYear(), h.getMonth() + desp, 1);
       fin = new Date(ini.getFullYear(), ini.getMonth() + 1, 1);
       titulo = ini.toLocaleDateString('es-GT', { month: 'long', year: 'numeric' });
     }
@@ -1016,25 +1044,62 @@
       ['Pendientes por entregar ahora', pendientes],
     ].map(([t, v, cl]) => `<div class="kpi ${cl || ''}"><b>${esc(v)}</b><span>${t}</span></div>`).join('');
 
-    // Barras: por hora (día), por día (semana y mes)
-    const grupos = [];
-    if (repPeriodo === 'dia') {
-      const horas = ent.map((p) => new Date(p.entregadoEn).getHours());
-      const desde = Math.min(7, ...horas), hasta = Math.max(18, ...horas);
-      for (let hh = desde; hh <= hasta; hh++) grupos.push({ et: `${hh}:00`, l: ent.filter((p) => new Date(p.entregadoEn).getHours() === hh), hoy: false });
-    } else {
-      const hoyStr = new Date().toDateString();
-      for (let t = new Date(ini); +t < fin; t.setDate(t.getDate() + 1)) {
-        const d = new Date(t);
-        const ds = d.toDateString();
-        grupos.push({ et: `${DIAS[d.getDay()]} ${d.getDate()}`, l: ent.filter((p) => new Date(p.entregadoEn).toDateString() === ds), hoy: ds === hoyStr });
+    // Comparación con el periodo anterior
+    const ant = rangoReporte(repDesplaza - 1);
+    const entAnt = pedidos.filter((p) => p.estado === 'entregado' && p.entregadoEn >= ant.ini && p.entregadoEn < ant.fin);
+    const cambio = (a, b) => (!b ? '' : `${a >= b ? '▲' : '▼'} ${Math.abs(Math.round((a - b) / b * 100))}%`);
+    const nomAnt = { dia: 'día anterior', semana: 'semana anterior', mes: 'mes anterior' }[repPeriodo];
+    $$('#rep-kpis .kpi').forEach((k, i) => {
+      const comp = [[suma(ent, 'total'), suma(entAnt, 'total')], [suma(ent, 'cantidad'), suma(entAnt, 'cantidad')]][i];
+      if (comp && cambio(...comp)) k.insertAdjacentHTML('beforeend', `<small class="${comp[0] >= comp[1] ? 'sube' : 'baja'}">${cambio(...comp)} vs ${nomAnt}</small>`);
+    });
+
+    const cubetas = (r) => {
+      const et = [], val = [];
+      if (repPeriodo === 'dia') {
+        for (let hh = 5; hh <= 21; hh++) { et.push(`${hh}h`); val.push(0); }
+      } else {
+        for (let t = new Date(r.ini); +t < r.fin; t.setDate(t.getDate() + 1)) { et.push(repPeriodo === 'semana' ? `${DIAS[t.getDay()]} ${t.getDate()}` : String(t.getDate())); val.push(0); }
       }
-    }
-    const max = Math.max(1, ...grupos.map((g) => suma(g.l, 'total')));
-    $('#rep-barras').innerHTML = ent.length ? grupos.map((g) => {
-      const v = suma(g.l, 'total');
-      return `<div class="barra"><span>${esc(g.et)}</span><div class="riel"><div class="llena ${g.hoy ? 'hoy' : ''}" style="width:${(v / max * 100).toFixed(1)}%"></div></div><span class="v">${v ? Q(v) : '–'}</span></div>`;
-    }).join('') : '<p class="hint">No hay entregas en este periodo.</p>';
+      pedidos.forEach((p) => {
+        if (p.estado !== 'entregado' || p.entregadoEn < r.ini || p.entregadoEn >= r.fin) return;
+        const d = new Date(p.entregadoEn);
+        const i = repPeriodo === 'dia' ? Math.min(21, Math.max(5, d.getHours())) - 5 : Math.round((new Date(d).setHours(0, 0, 0, 0) - r.ini) / 864e5);
+        if (val[i] != null) val[i] += +p.cantidad;
+      });
+      return { et, val };
+    };
+    const act = cubetas({ ini, fin }), prev = cubetas(ant);
+    const unidad = repPeriodo === 'dia' ? 'hora' : 'día';
+    $('#g1-titulo').textContent = `Garrafones vendidos por ${unidad}`;
+    const iMax = act.val.indexOf(Math.max(...act.val));
+    $('#g1-nota').textContent = act.val[iMax] > 0
+      ? `${repPeriodo === 'dia' ? 'La mejor hora fue' : 'El mejor día fue'} ${act.et[iMax]}: ${act.val[iMax]} garrafón(es).`
+      : 'No hay entregas en este periodo.';
+    columnas($('#g1'), act.et, [{ nombre: titulo, clase: 's1', valores: act.val }], { fmt: (v) => `${v} garrafón(es)`, titulo: 'Garrafones vendidos' });
+
+    const etComp = repPeriodo === 'semana' ? ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'] : act.et;
+    const prevVals = etComp.map((_, i) => prev.val[i] || 0);
+    const tA = act.val.reduce((a, b) => a + b, 0), tP = prevVals.reduce((a, b) => a + b, 0);
+    const nomAct = { dia: titulo === 'Hoy' ? 'Hoy' : 'Este día', semana: 'Esta semana', mes: 'Este mes' }[repPeriodo];
+    $('#g2-titulo').textContent = `Comparado con ${repPeriodo === 'semana' ? 'la' : 'el'} ${nomAnt}`;
+    $('#g2-leyenda').innerHTML = `<span><i class="s1"></i>${esc(nomAct)}: <b>${tA}</b> garrafones</span>
+      <span><i class="s2"></i>${esc(nomAnt[0].toUpperCase() + nomAnt.slice(1))}: <b>${tP}</b>${cambio(tA, tP) ? ` · <b class="${tA >= tP ? 'sube' : 'baja'}">${cambio(tA, tP)}</b>` : ''}</span>`;
+    columnas($('#g2'), etComp, [{ nombre: nomAct, clase: 's1', valores: act.val }, { nombre: nomAnt, clase: 's2', valores: prevVals }], { fmt: (v) => `${v} garrafón(es)`, marcarMejor: false, titulo: 'Comparación con el periodo anterior' });
+
+    // ¿Qué día de la semana se vende más? (promedio de las últimas 8 semanas)
+    const hoy0 = new Date(); hoy0.setHours(0, 0, 0, 0);
+    const desde8 = +hoy0 - 55 * 864e5;
+    const sumaDia = [0, 0, 0, 0, 0, 0, 0], veces = [0, 0, 0, 0, 0, 0, 0];
+    for (let t = new Date(desde8); +t <= +hoy0; t.setDate(t.getDate() + 1)) veces[(t.getDay() + 6) % 7]++;
+    pedidos.forEach((p) => { if (p.estado === 'entregado' && p.entregadoEn >= desde8) sumaDia[(new Date(p.entregadoEn).getDay() + 6) % 7] += +p.cantidad; });
+    const prom = sumaDia.map((s, i) => Math.round(s / Math.max(1, veces[i]) * 10) / 10);
+    const NOMBRES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados', 'domingos'];
+    const iTop = prom.indexOf(Math.max(...prom));
+    $('#g3-nota').textContent = prom[iTop] > 0
+      ? `Los ${NOMBRES[iTop]} se vende más: ${prom[iTop]} garrafones en promedio (últimas 8 semanas).`
+      : 'Todavía no hay ventas suficientes para comparar los días.';
+    columnas($('#g3'), ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'], [{ nombre: 'Promedio', clase: 's1', valores: prom }], { fmt: (v) => `${v} garrafones en promedio`, titulo: 'Promedio por día de la semana' });
 
     // Tablas
     const agrupar = (clave) => {
@@ -1087,6 +1152,128 @@
     }
   });
 
+  /* ---------- Repartidor: GPS, siguiente entrega y ruta ---------- */
+  function distanciaKm(a, b) {
+    const r = Math.PI / 180, R = 6371;
+    const dLat = (b.lat - a.lat) * r, dLng = (b.lng - a.lng) * r;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  const textoDist = (km) => (km < 1 ? `${Math.round(km * 1000 / 10) * 10} m` : `${km.toFixed(1)} km`);
+  const distA = (c) => (miPos && c && c.lat ? distanciaKm(miPos, c) : null);
+
+  // Casas pendientes ordenadas por la ruta más corta (la más cercana primero, luego la más cercana a esa…)
+  function rutaPendiente() {
+    const pend = {};
+    pedidos.filter((p) => p.estado === 'pendiente').forEach((p) => { (pend[p.clienteId] ||= []).push(p); });
+    let casas = Object.keys(pend).map((id) => ({ c: clientePor(id), lista: pend[id] })).filter((x) => x.c.lat);
+    const orden = [];
+    let desde = miPos;
+    while (casas.length) {
+      let i = 0;
+      if (desde) casas.forEach((x, j) => { if (distanciaKm(desde, x.c) < distanciaKm(desde, casas[i].c)) i = j; });
+      const x = casas.splice(i, 1)[0];
+      orden.push(x); desde = x.c;
+    }
+    return orden;
+  }
+
+  function pintarSiguiente() {
+    const box = $('#siguiente');
+    if (MODO !== 'pedidos') { box.hidden = true; return; }
+    const ruta = rutaPendiente();
+    const sinGps = new Set(pedidos.filter((p) => p.estado === 'pendiente' && !clientePor(p.clienteId).lat).map((p) => p.clienteId)).size;
+    if (!ruta.length) {
+      box.hidden = false;
+      box.innerHTML = `<b>${sinGps ? `${sinGps} entrega(s) sin punto GPS` : 'No hay entregas pendientes ✓'}</b>
+        <p class="hint">${sinGps ? 'Búscalas en “Pedidos” y guarda el GPS al llegar.' : '¡Buen trabajo!'}</p>`;
+      return;
+    }
+    const { c, lista } = ruta[0];
+    const cant = lista.reduce((s, p) => s + p.cantidad, 0);
+    const total = lista.reduce((s, p) => s + p.total, 0);
+    const d = distA(c);
+    const paradas = ruta.slice(0, 10).map((x) => `${x.c.lat},${x.c.lng}`);
+    const rutaUrl = `https://www.google.com/maps/dir/?api=1${miPos ? `&origin=${miPos.lat},${miPos.lng}` : ''}&destination=${paradas[paradas.length - 1]}${paradas.length > 1 ? `&waypoints=${encodeURIComponent(paradas.slice(0, -1).join('|'))}` : ''}&travelmode=driving`;
+    box.hidden = false;
+    box.innerHTML = `<div class="cab"><span class="hint">Siguiente entrega${d != null ? ` · a ${textoDist(d)}` : ''}</span><span class="hint">${ruta.length} parada(s)</span></div>
+      <h3>${esc(c.nombre)}</h3>
+      <div><b>${cant} garrafón(es)</b> · cobrar <b>${Q(total)}</b></div>
+      ${c.referencia || c.direccion ? `<div class="meta">${esc([c.direccion, c.referencia].filter(Boolean).join(' · '))}</div>` : ''}
+      <div class="acciones">
+        <a class="btn primario" href="${esc(linkRuta(c))}" target="_blank" rel="noopener">🧭 Cómo llegar</a>
+        <button class="btn ok" data-s="entregar">✓ Entregado</button>
+        ${c.telefono ? `<a class="btn chico" href="tel:${esc(telLimpio(c.telefono))}">Llamar</a>` : ''}
+        <button class="btn chico" data-s="avisar">Avisar</button>
+        ${ruta.length > 1 ? `<a class="btn chico" href="${esc(rutaUrl)}" target="_blank" rel="noopener">Ruta completa</a>` : ''}
+      </div>`;
+    box.onclick = (e) => {
+      const b = e.target.closest('[data-s]');
+      if (!b) return;
+      if (b.dataset.s === 'entregar') entregar(lista);
+      if (b.dataset.s === 'avisar') abrirAviso(c, 'en-camino', 'Avisar al cliente', lista[0]);
+    };
+  }
+
+  /* ---------- Gráficas (dueño) ---------- */
+  const tip = $('#tip');
+  function mostrarTip(e) {
+    const t = e.target.closest('[data-tip]');
+    if (!t) { tip.hidden = true; return; }
+    tip.textContent = t.dataset.tip; tip.hidden = false;
+    const x = Math.min(innerWidth - tip.offsetWidth - 8, Math.max(8, e.clientX - tip.offsetWidth / 2));
+    tip.style.left = x + 'px'; tip.style.top = Math.max(8, e.clientY - tip.offsetHeight - 14) + 'px';
+  }
+  document.addEventListener('pointermove', (e) => { if (e.target.closest('.fig')) mostrarTip(e); else tip.hidden = true; });
+  document.addEventListener('click', (e) => { if (e.target.closest('.fig')) mostrarTip(e); });
+
+  // Columnas verticales. series: [{ nombre, clase, valores }], etiquetas: textos del eje X
+  const graficas = new Map();
+  function columnas(el, etiquetas, series, opc = {}) {
+    graficas.set(el, { etiquetas, series, opc });
+    if (!el._ro) { el._ro = new ResizeObserver(() => dibujar(el)); el._ro.observe(el); }
+    dibujar(el);
+  }
+  function dibujar(el) {
+    const g = graficas.get(el);
+    if (!g || !el.clientWidth) return;
+    const { etiquetas, series, opc } = g;
+    const W = el.clientWidth, H = el.clientHeight || 220;
+    const izq = 34, der = 8, arr = 18, aba = 26;
+    const n = etiquetas.length, ns = series.length;
+    const max = Math.max(1, ...series.flatMap((s) => s.valores));
+    const paso = Math.pow(10, Math.floor(Math.log10(max)));
+    const tope = Math.ceil(max / paso) * paso;
+    const y = (v) => arr + (H - arr - aba) * (1 - v / tope);
+    const banda = (W - izq - der) / n;
+    const ancho = Math.max(2, Math.min(28, (banda * 0.7 - (ns - 1) * 2) / ns));
+    const cada = Math.ceil(n / Math.max(1, Math.floor((W - izq) / 34)));
+    let svg = '';
+    [0, tope / 2, tope].filter((v) => Number.isInteger(v)).forEach((v) => {
+      svg += `<line x1="${izq}" x2="${W - der}" y1="${y(v)}" y2="${y(v)}" class="grid"/><text x="${izq - 6}" y="${y(v) + 4}" class="eje" text-anchor="end">${Math.round(v)}</text>`;
+    });
+    let mejor = -1, mejorV = -1;
+    series[0].valores.forEach((v, i) => { if (v > mejorV) { mejorV = v; mejor = i; } });
+    etiquetas.forEach((et, i) => {
+      const x0 = izq + banda * i + (banda - (ancho * ns + (ns - 1) * 2)) / 2;
+      series.forEach((s, k) => {
+        const v = s.valores[i] || 0;
+        const x = x0 + k * (ancho + 2), yt = y(v), h = H - aba - yt;
+        const r = Math.min(4, ancho / 2, h);
+        const d = h > 0 ? `M${x},${H - aba} V${yt + r} Q${x},${yt} ${x + r},${yt} H${x + ancho - r} Q${x + ancho},${yt} ${x + ancho},${yt + r} V${H - aba} Z` : '';
+        const hint = `${et}: ${opc.fmt ? opc.fmt(v) : v}${ns > 1 ? ` (${s.nombre})` : ''}`;
+        svg += `<g data-tip="${esc(hint)}"><rect x="${izq + banda * i}" y="${arr}" width="${banda}" height="${H - arr - aba}" fill="transparent"/>${d ? `<path d="${d}" class="${s.clase}"/>` : ''}</g>`;
+      });
+      if (i % cada === 0 || i === mejor) svg += `<text x="${izq + banda * i + banda / 2}" y="${H - 8}" class="eje${i === mejor && mejorV > 0 ? ' fuerte' : ''}" text-anchor="middle">${esc(et)}</text>`;
+    });
+    if (mejorV > 0 && opc.marcarMejor !== false) {
+      const xm = izq + banda * mejor + banda / 2;
+      const txt = opc.fmt ? opc.fmt(mejorV) : mejorV;
+      svg += `<text x="${Math.min(W - der - 4, Math.max(izq + 14, xm))}" y="${y(mejorV) - 5}" class="valor" text-anchor="middle">${esc(txt)}</text>`;
+    }
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(opc.titulo || '')}">${svg}</svg>`;
+  }
+
   /* ---------- Datos de ejemplo (para probar) ---------- */
   async function cargarEjemplo() {
     const ej = [
@@ -1110,7 +1297,8 @@
   /* ---------- Arranque ---------- */
   function refrescar() {
     pintarStats(); pintarPedidos(); pintarClientes(); pintarMapa(false); pintarSync();
-    if (!$('#v-reportes').hidden) pintarReportes();
+    if (!$('#v-reportes').hidden || !$('#v-cobros').hidden) pintarReportes();
+    if (!$('#v-mapa').hidden) pintarSiguiente();
     if (!$('#v-nuevo').hidden) pintarFrecuentes();
   }
   async function cargar() {
@@ -1119,7 +1307,7 @@
     refrescar();
   }
   aplicarRol();
-  if (!conectado() && !modoLocal) mostrar('entrar');
+  if (!conectado() && !modoLocal) mostrar('entrar'); else mostrar(INICIO);
   cargar().then(() => { if (DB.modoMemoria) toast('Este navegador no guarda datos: usa Chrome en el celular.'); sincronizar(); });
   setInterval(() => { if (document.visibilityState === 'visible') sincronizar(); }, 60000);
   addEventListener('online', () => sincronizar());

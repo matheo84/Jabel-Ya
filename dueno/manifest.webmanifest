@@ -1,0 +1,27 @@
+{
+  "id": "./",
+  "name": "Jabel Ya´ Dueño",
+  "short_name": "Jabel Dueño",
+  "description": "Reportes, gráficas, cobros y usuarios de Jabel Ya´",
+  "lang": "es-GT",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050a30",
+  "theme_color": "#050a30",
+  "icons": [
+    {
+      "src": "../icons/dueno-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "../icons/dueno-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

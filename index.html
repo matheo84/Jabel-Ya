@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#050a30">
   <meta name="description" content="Pedidos y entregas de la purificadora de agua Jabel Ya´">
   <title>Jabel Ya´ Pedidos</title>
+  <script>window.APP_MODO = 'pedidos';</script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -16,12 +17,12 @@
 </head>
 <body>
   <header class="top">
-    <div class="brand">
+    <div class="brand" id="brand" role="button" tabindex="0" title="Cuenta y ajustes">
       <img class="logo" src="assets/gota.png" alt="">
       <div>
         <p class="pre">Purificadora</p>
         <h1>JABEL <em>ya´</em></h1>
-        <p>Agua pura, vida sana · <a href="tel:+50242372018">4237 2018</a></p>
+        <p><span id="app-nombre">Agua pura, vida sana</span> · <a href="tel:+50242372018">4237 2018</a></p>
       </div>
     </div>
     <button class="sync" id="sync" hidden></button>
@@ -120,6 +121,7 @@
         <label class="chk"><input type="checkbox" id="chk-todos"> Ver todas las casas</label>
       </div>
       <p class="map-aviso" id="map-aviso" hidden></p>
+      <div class="siguiente" id="siguiente" hidden></div>
     </section>
 
     <!-- CLIENTES -->
@@ -146,34 +148,36 @@
         </div>
       </div>
       <div class="kpis" id="rep-kpis"></div>
-      <h3>Ventas</h3>
-      <div class="barras" id="rep-barras"></div>
+      <section class="grafica">
+        <h3 id="g1-titulo">Garrafones vendidos</h3>
+        <p class="hint" id="g1-nota"></p>
+        <div class="fig" id="g1"></div>
+      </section>
+      <section class="grafica">
+        <h3 id="g2-titulo">Comparado con el periodo anterior</h3>
+        <div class="leyenda" id="g2-leyenda"></div>
+        <div class="fig" id="g2"></div>
+      </section>
+      <section class="grafica">
+        <h3>¿Qué día de la semana se vende más agua?</h3>
+        <p class="hint" id="g3-nota"></p>
+        <div class="fig" id="g3"></div>
+      </section>
       <div class="dos-col">
         <div><h3>Por producto</h3><table class="tabla" id="rep-productos"></table></div>
         <div><h3>Por repartidor</h3><table class="tabla" id="rep-repartidores"></table></div>
       </div>
+    </section>
+
+    <!-- COBROS -->
+    <section class="view" id="v-cobros" hidden>
       <h2>Cobros pendientes</h2>
       <p class="hint" id="rep-fiado-total"></p>
       <ul class="lista" id="rep-fiados"></ul>
     </section>
 
-    <!-- AJUSTES -->
-    <section class="view" id="v-ajustes" hidden>
-      <h2>Ajustes</h2>
-      <form id="form-ajustes" class="form solo-admin">
-        <label>Precio por defecto del garrafón (Q) <input name="precio" type="number" step="0.5" min="0"></label>
-
-        <button class="btn primario">Guardar ajustes</button>
-      </form>
-      <h2>Instalar en el celular</h2>
-      <div class="acciones">
-        <button class="btn primario" data-instalar id="btn-instalar">📲 Instalar app</button>
-      </div>
-      <p class="hint" id="instalar-ayuda"></p>
-
-      <h2>Mi cuenta</h2>
-      <div id="cuenta"></div>
-
+    <!-- USUARIOS -->
+    <section class="view" id="v-usuarios" hidden>
       <div id="usuarios-box" class="solo-admin" hidden>
         <h2>Usuarios</h2>
         <p class="hint">El repartidor entra con su usuario y PIN, y solo ve los pedidos que le asignes.</p>
@@ -198,8 +202,32 @@
         </form>
         <button class="btn" id="btn-enlace">Copiar enlace para el repartidor</button>
       </div>
+    </section>
 
-      <div class="solo-admin">
+    <!-- AJUSTES -->
+    <section class="view" id="v-ajustes" hidden>
+      <h2>Ajustes</h2>
+      <form id="form-ajustes" class="form solo-dueno">
+        <label>Precio por defecto del garrafón (Q) <input name="precio" type="number" step="0.5" min="0"></label>
+
+        <button class="btn primario">Guardar ajustes</button>
+      </form>
+      <h2>Instalar en el celular</h2>
+      <div class="acciones">
+        <button class="btn primario" data-instalar id="btn-instalar">📲 Instalar app</button>
+      </div>
+      <p class="hint" id="instalar-ayuda"></p>
+
+      <h2>Mi cuenta</h2>
+      <div id="cuenta"></div>
+
+
+      <h2>Las apps de Jabel Ya´</h2>
+      <div class="apps">
+        <a class="btn" href="./">🧾 Pedidos y reparto</a>
+        <a class="btn solo-admin" href="dueno/">📊 Dueño</a>
+      </div>
+      <div class="solo-dueno">
       <h2>Copia de seguridad</h2>
       <p class="hint">Los datos se guardan en este celular. Descarga una copia seguido y pásala a otro celular con “Importar”.</p>
       <div class="acciones">
@@ -212,13 +240,16 @@
   </main>
 
   <nav class="tabs">
-    <button data-view="pedidos" class="on"><span>🧾</span>Pedidos</button>
-    <button data-view="nuevo" class="solo-admin"><span>➕</span>Nuevo</button>
-    <button data-view="mapa"><span>🗺️</span>Mapa</button>
-    <button data-view="clientes"><span>🏠</span>Clientes</button>
-    <button data-view="reportes" class="solo-admin"><span>📊</span>Reportes</button>
-    <button data-view="ajustes"><span>⚙️</span>Ajustes</button>
+    <button data-view="pedidos" data-modo="pedidos"><span>🧾</span>Pedidos</button>
+    <button data-view="nuevo" data-modo="pedidos" class="solo-admin"><span>➕</span>Nuevo</button>
+    <button data-view="mapa" data-modo="pedidos"><span>🗺️</span>Mapa</button>
+    <button data-view="clientes" data-modo="pedidos"><span>🏠</span>Clientes</button>
+    <button data-view="reportes" data-modo="dueno"><span>📊</span>Resumen</button>
+    <button data-view="cobros" data-modo="dueno"><span>💵</span>Cobros</button>
+    <button data-view="usuarios" data-modo="dueno"><span>👥</span>Usuarios</button>
+    <button data-view="ajustes" data-modo="dueno"><span>⚙️</span>Ajustes</button>
   </nav>
+  <div class="tip" id="tip" hidden></div>
 
   <!-- Ficha de cliente (diálogo) -->
   <dialog id="dlg-cliente">
