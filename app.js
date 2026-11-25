@@ -7,7 +7,9 @@
   const Q = (n) => 'Q' + Number(n || 0).toFixed(2);
   const hoy = () => new Date().toDateString();
   const fecha = (t) => new Date(t).toLocaleString('es-GT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-  const CENTRO_GT = [14.6349, -90.5069];
+  // Centro del mapa al abrir: Panajachel, Sololá
+  const CENTRO_GT = [14.7409, -91.1585];
+  const ZOOM_INICIO = 15;
   const NEGOCIO = 'Jabel Ya´';
   // Cada página dice qué app es: 'pedidos' (index.html, también la usa el repartidor) o 'dueno' (dueno/)
   const MODO = ['pedidos', 'dueno'].includes(window.APP_MODO) ? window.APP_MODO : 'pedidos';
@@ -72,6 +74,7 @@
     $$('.view').forEach((v) => { v.hidden = v.id !== 'v-' + vista; });
     $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === vista));
     if (vista !== 'mapa' && $('#siguiente')) $('#siguiente').hidden = true;
+    pantallaEncendida(vista === 'mapa');
     if (vista === 'mapa') abrirMapa();
     if (vista === 'clientes') pintarClientes();
     if (vista === 'pedidos') pintarPedidos();
@@ -131,7 +134,13 @@
         ${sinNada && !conectado() ? '<br><br><button class="btn" data-acc="ejemplo">Cargar datos de ejemplo</button>' : ''}</li>`;
       return;
     }
-    ul.innerHTML = lista.map((p) => {
+    let resumen = '';
+    if (filtro === 'entregado' || filtro === 'cobrar') {
+      const hoyE = pedidos.filter((p) => p.estado === 'entregado' && new Date(p.entregadoEn).toDateString() === hoy());
+      const sum = (l, k) => l.reduce((s, p) => s + (+p[k] || 0), 0);
+      resumen = `<li class="resumen-dia"><b>Cierre de hoy</b><span>${sum(hoyE, 'cantidad')} garrafón(es) entregados</span><span>💵 Cobrado ${Q(sum(hoyE.filter((p) => p.pagado), 'total'))}</span><span>📒 Fiado ${Q(sum(hoyE.filter((p) => !p.pagado), 'total'))}</span></li>`;
+    }
+    ul.innerHTML = resumen + lista.map((p) => {
       const c = clientePor(p.clienteId);
       const ent = p.estado === 'entregado';
       const fiado = ent && !p.pagado;
@@ -279,7 +288,7 @@
   });
 
   /* ---------- Mapa del repartidor ---------- */
-  let mapa, capaCasas, marcadorYo, vigilancia;
+  let mapa, capaCasas, capaRuta, marcadorYo, vigilancia;
   function nuevoMapa(el, centro, zoom) {
     const m = L.map(el, { zoomControl: true }).setView(centro, zoom);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -293,7 +302,8 @@
     medirEncabezado();
     if (typeof L === 'undefined') return avisoMapa('No se pudo cargar el mapa.');
     if (!mapa) {
-      mapa = nuevoMapa('mapa', CENTRO_GT, 13);
+      mapa = nuevoMapa('mapa', CENTRO_GT, ZOOM_INICIO);
+      capaRuta = L.layerGroup().addTo(mapa);
       capaCasas = L.layerGroup().addTo(mapa);
       pintarMapa(true);
     } else { pintarMapa(false); }
@@ -314,10 +324,19 @@
     const sinGps = Object.keys(pendPor).filter((id) => !clientePor(id).lat).length;
     avisoMapa(sinGps ? `${sinGps} casa(s) con pedido pendiente no tienen punto GPS. Guárdalo desde “Clientes”.` : (!casas.length ? (todos ? 'Aún no hay casas con punto GPS.' : 'No hay entregas pendientes con ubicación.') : ''));
     const puntos = [];
+    // Orden de la ruta: 1 = la más cercana a ti, luego la más cercana a esa…
+    const ruta = rutaPendiente();
+    const parada = {};
+    ruta.forEach((x, i) => { parada[x.c.id] = i + 1; });
+    capaRuta.clearLayers();
+    if (ruta.length) {
+      const linea = (miPos ? [[miPos.lat, miPos.lng]] : []).concat(ruta.map((x) => [x.c.lat, x.c.lng]));
+      if (linea.length > 1) L.polyline(linea, { color: '#2fa4dc', weight: 3, dashArray: '6 8', opacity: 0.9 }).addTo(capaRuta);
+    }
     for (const c of casas) {
       const lista = pendPor[c.id] || [];
-      const cant = lista.reduce((s, p) => s + p.cantidad, 0);
-      const m = L.marker([c.lat, c.lng], { icon: icono(lista.length ? '' : 'casa', lista.length ? cant : '') });
+      const n = parada[c.id];
+      const m = L.marker([c.lat, c.lng], { icon: icono(lista.length ? (n === 1 ? 'primera' : '') : 'casa', lista.length ? (n || '') : ''), zIndexOffset: n === 1 ? 500 : 0 });
       m.bindPopup(() => popupCasa(c, lista), { maxWidth: 260 });
       m.clienteId = c.id;
       m.addTo(capaCasas);
@@ -330,6 +349,7 @@
     const div = document.createElement('div');
     const total = lista.reduce((s, p) => s + p.total, 0);
     div.innerHTML = `<h3>${esc(c.nombre)}</h3>
+      ${lista.length ? `<div class="hint">${esc(lista.reduce((s, p) => s + p.cantidad, 0))} garrafón(es)${distA(c) != null ? ` · a ${textoDist(distA(c))}` : ''}</div>` : ''}
       ${lista.length ? `<div><b>${lista.map((p) => `${esc(p.cantidad)} × ${esc(p.producto)}`).join('<br>')}</b></div><div>Cobrar: <b>${Q(total)}</b></div>` : '<div>Sin pedidos pendientes</div>'}
       <div>${esc([c.direccion, c.zona].filter(Boolean).join(', '))}</div>
       ${c.referencia ? `<div><i>${esc(c.referencia)}</i></div>` : ''}
@@ -367,7 +387,7 @@
     vigilancia = navigator.geolocation.watchPosition((p) => {
       const ll = [p.coords.latitude, p.coords.longitude];
       miPos = { lat: ll[0], lng: ll[1], precision: Math.round(p.coords.accuracy), t: Date.now() };
-      if (Date.now() - ultimaPinta > 15000 || primera) { ultimaPinta = Date.now(); pintarSiguiente(); if (MODO === 'pedidos' && !$('#v-pedidos').hidden) pintarPedidos(); }
+      if (Date.now() - ultimaPinta > 15000 || primera) { ultimaPinta = Date.now(); pintarSiguiente(); pintarMapa(false); if (MODO === 'pedidos' && !$('#v-pedidos').hidden) pintarPedidos(); }
       if (!mapa) return;
       if (!marcadorYo) marcadorYo = L.marker(ll, { icon: L.divIcon({ className: '', html: '<div class="pin yo"></div>', iconSize: [20, 20], iconAnchor: [10, 10] }), zIndexOffset: 1000 }).addTo(mapa).bindPopup('Estás aquí');
       else marcadorYo.setLatLng(ll);
@@ -444,7 +464,7 @@
     el.hidden = false;
     if (typeof L === 'undefined') return;
     if (!miniMapa) {
-      miniMapa = nuevoMapa(el, CENTRO_GT, 13);
+      miniMapa = nuevoMapa(el, CENTRO_GT, ZOOM_INICIO);
       miniMapa.on('click', (ev) => { enEdicion.lat = ev.latlng.lat; enEdicion.lng = ev.latlng.lng; enEdicion.precision = null; pintarGps(); moverMini(); });
     }
     setTimeout(() => { miniMapa.invalidateSize(); moverMini(true); }, 60);
@@ -851,7 +871,7 @@
     } catch (er) { toast(er.message); }
   });
   $('#btn-enlace').addEventListener('click', async () => {
-    const enlace = `${new URL('./', document.baseURI).href}?api=${encodeURIComponent(sheets.url)}`;
+    const enlace = `${new URL('pedidos/', document.baseURI).href}?api=${encodeURIComponent(sheets.url)}`;
     try { await navigator.clipboard.writeText(enlace); toast('Enlace copiado. Envíalo al repartidor por WhatsApp.'); }
     catch (er) { $('#instalar-ayuda').textContent = enlace; toast('Copia el enlace que aparece en “Instalar en el celular”.'); }
   });
@@ -1214,6 +1234,16 @@
       if (b.dataset.s === 'avisar') abrirAviso(c, 'en-camino', 'Avisar al cliente', lista[0]);
     };
   }
+
+  // Mantener la pantalla encendida mientras el mapa está abierto (si el celular lo permite)
+  let candadoPantalla = null;
+  async function pantallaEncendida(si) {
+    try {
+      if (si && !candadoPantalla && 'wakeLock' in navigator) { candadoPantalla = await navigator.wakeLock.request('screen'); candadoPantalla.addEventListener('release', () => { candadoPantalla = null; }); }
+      if (!si && candadoPantalla) { await candadoPantalla.release(); candadoPantalla = null; }
+    } catch (e) { candadoPantalla = null; }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !$('#v-mapa').hidden) pantallaEncendida(true); });
 
   /* ---------- Gráficas (dueño) ---------- */
   const tip = $('#tip');

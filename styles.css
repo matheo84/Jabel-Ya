@@ -245,3 +245,6 @@ body[data-modo=pedidos] .map-aviso { right: 190px; }
 @media (prefers-color-scheme: dark) { .sube { color: #4ade80; } .baja { color: #f87171; } }
 .tip { position: fixed; z-index: 3000; background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 700; padding: 6px 10px; border-radius: 8px; pointer-events: none; white-space: nowrap; }
 body[data-modo=dueno][data-rol=repartidor] .tabs { display: none; }
+.pin.primera { background: var(--ok); transform: rotate(-45deg) scale(1.2); }
+.resumen-dia { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; background: var(--marino); color: #fff; border-radius: 14px; padding: 10px 14px; font-size: 14px; }
+.resumen-dia b { font-size: 16px; width: 100%; }

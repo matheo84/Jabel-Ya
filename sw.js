@@ -1,8 +1,8 @@
 /* Service worker: permite abrir la app sin internet.
    Cambia VERSION cada vez que subas cambios para que los celulares se actualicen. */
-const VERSION = 'jabelya-v6';
+const VERSION = 'jabelya-v7';
 const ARCHIVOS = [
-  './', 'index.html', 'styles.css', 'app.js', 'db.js', 'manifest.webmanifest',
+  './', 'index.html', 'pedidos/', 'pedidos/manifest.webmanifest', 'styles.css', 'app.js', 'db.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'assets/gota.png', 'assets/logo.jpg',
   'assets/stickers/en-camino.webp', 'assets/stickers/gracias.webp', 'assets/stickers/con-gusto.webp', 'assets/stickers/a-la-orden.webp',
   'dueno/', 'dueno/manifest.webmanifest',

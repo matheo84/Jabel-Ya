@@ -6,21 +6,21 @@ Aplicación para el celular de la purificadora **Jabel Ya´**, agua pura, vida s
 
 ## Dos apps, una sola hoja de Google
 
-El proyecto trae **dos apps** que usan el mismo Google Sheet. Cada una se instala por separado en el celular, con su propio ícono:
+El proyecto trae **dos apps** que usan el mismo Google Sheet. Cada una está en su propia carpeta para que se instale por separado, con su propio ícono. La dirección principal (`https://matheo84.github.io/Jabel-Ya/`) es una portada con un botón para cada app.
 
 | App | Dirección (en GitHub Pages) | Para quién | Qué tiene |
 |---|---|---|---|
-| 🧾 **Pedidos y reparto** | `https://TU_USUARIO.github.io/jabel-ya/` | Quien toma pedidos y el repartidor | **Pedidos, Nuevo, Mapa y Clientes**. El mapa usa el GPS y muestra primero la entrega más cercana con su ruta. |
-| 📊 **Dueño** (ícono con “D”) | `…/jabel-ya/dueno/` | Solo el administrador | **Resumen** con gráficas, **Cobros** pendientes, **Usuarios** y **Ajustes**. |
+| 🧾 **Pedidos y reparto** | `https://matheo84.github.io/Jabel-Ya/pedidos/` | Quien toma pedidos y el repartidor | **Pedidos, Nuevo, Mapa y Clientes**. El mapa usa el GPS y muestra primero la entrega más cercana con su ruta. |
+| 📊 **Dueño** (ícono con “D”) | `https://matheo84.github.io/Jabel-Ya/dueno/` | Solo el administrador | **Resumen** con gráficas, **Cobros** pendientes, **Usuarios** y **Ajustes**. |
 
 En la app de pedidos no hay pestaña de ajustes. Solo se abre una pantalla pequeña con la cuenta (sincronizar, cerrar sesión, instalar) al **tocar el logo** de arriba.
 
 ### App de pedidos y reparto
 - **Pedidos**: lista de pendientes, entregados, por cobrar y todos. Con el GPS activo, los pendientes se ordenan del más cercano al más lejano (“📍 a 350 m de ti”).
 - **Nuevo**: registra cliente, teléfono, dirección, referencia, producto, cantidad, precio, notas y repartidor. Arriba está **Repetir pedido**: los clientes frecuentes (⭐ o con 2 pedidos o más) se repiten con un toque.
-- **Mapa**: al abrirlo **se activa el GPS del celular** (punto azul). Abajo aparece la **siguiente entrega**, la casa pendiente más cercana, con distancia, garrafones, cuánto cobrar y los botones **🧭 Cómo llegar** (ruta en Google Maps), **✓ Entregado**, **Llamar** y **Avisar**. **Ruta completa** abre Google Maps con todas las paradas en orden (hasta 10).
+- **Mapa**: abre centrado en **Panajachel, Sololá**. Al abrirlo **se activa el GPS del celular** (punto azul) y la pantalla no se apaga mientras el mapa está abierto. Las casas pendientes tienen un **número de parada** (la 1, en verde, es la más cercana) y una línea punteada marca el orden de la ruta. Abajo aparece la **siguiente entrega**, la casa pendiente más cercana, con distancia, garrafones, cuánto cobrar y los botones **🧭 Cómo llegar** (ruta en Google Maps), **✓ Entregado**, **Llamar** y **Avisar**. **Ruta completa** abre Google Maps con todas las paradas en orden (hasta 10).
 - **Clientes**: fotos y punto GPS de cada casa, ⭐ frecuente y **↻ Repetir pedido**.
-- **Entregar y cobrar**: al marcar entregado pregunta **💵 Pagó** o **📒 Queda fiado**.
+- **Entregar y cobrar**: al marcar entregado pregunta **💵 Pagó** o **📒 Queda fiado**. En **Pedidos → Entregados** arriba sale el **cierre de hoy**: garrafones entregados, cuánto se cobró y cuánto quedó fiado (para cuadrar el dinero con el repartidor).
 - **Avisos con stickers** por WhatsApp.
 - Si entra un **repartidor**, solo ve los pedidos que le asignaste, y no aparece la pestaña **Nuevo**.
 
@@ -41,7 +41,8 @@ Cada celular guarda una copia de los datos, así que la app sigue funcionando si
 ## Archivos del proyecto
 
 ```
-index.html             App de pedidos y reparto (página principal)
+index.html             Portada con los botones de las dos apps
+pedidos/               App de pedidos y reparto (index.html + manifest)
 dueno/                 App del dueño (index.html + manifest)
 styles.css             Colores y diseño
 app.js                 Lógica de las dos apps: pedidos, cobros, reportes, mapa, GPS, usuarios
@@ -62,7 +63,7 @@ La cámara, el GPS y la instalación solo funcionan desde `https://` o desde `lo
 python3 -m http.server 8000     # o: npx serve .
 ```
 
-Abre <http://localhost:8000> y toca **Usar solo en este celular, sin cuenta**. En **Pedidos** aparece **Cargar datos de ejemplo**.
+Abre <http://localhost:8000/pedidos/> y toca **Usar solo en este celular, sin cuenta**. En **Pedidos** aparece **Cargar datos de ejemplo**.
 
 ---
 
@@ -92,7 +93,7 @@ git push -u origin main
 
 1. En tu repositorio: **Settings → Pages**.
 2. **Source**: **Deploy from a branch**. **Branch**: `main`, carpeta `/ (root)`. **Save**.
-3. En 1 o 2 minutos aparece la dirección de tu app: `https://TU_USUARIO.github.io/jabel-ya/`
+3. En 1 o 2 minutos aparece la dirección: `https://TU_USUARIO.github.io/NOMBRE-DEL-REPOSITORIO/` (la tuya es `https://matheo84.github.io/Jabel-Ya/`).
 
 ---
 
@@ -130,7 +131,7 @@ Se hace **una sola vez**, desde la computadora, con la cuenta de Google de la pu
 
 ### Entrar como administrador
 
-1. Abre la app del dueño (`https://TU_USUARIO.github.io/jabel-ya/dueno/`).
+1. Abre la app del dueño (`https://matheo84.github.io/Jabel-Ya/dueno/`).
 2. Escribe tu usuario (`juan`), tu PIN, y en **Dirección de Google Sheets** pega la URL del script.
 3. Toca **Entrar**. Si ya tenías pedidos en ese celular, se suben a la hoja.
 
@@ -150,6 +151,8 @@ Desde **Usuarios** (app del dueño) puedes **Editar** (cambiar nombre, rol o PIN
 ---
 
 ## 4. Instalar las apps en el celular
+
+> **Si ya habías instalado la versión anterior**: antes de esta actualización las dos apps compartían la misma carpeta, por eso al instalar una reemplazaba a la otra. **Desinstala los íconos viejos de Jabel Ya´** (mantén presionado el ícono → Desinstalar / Eliminar app) y vuelve a instalar cada una desde su dirección nueva: `…/Jabel-Ya/pedidos/` y `…/Jabel-Ya/dueno/`. Tus datos no se pierden (están en el Google Sheet y en el celular).
 
 Abre cada app en su dirección y instálala:
 
@@ -224,12 +227,12 @@ La guía oficial está en <https://docs.github.com/es/pages/configuring-a-custom
 
 ## Hacer cambios
 
-- Las dos apps usan los mismos `app.js` y `styles.css`. La página `dueno/index.html` es una copia de `index.html`; solo cambian `<base href="../">`, el título, el manifest, el ícono y `window.APP_MODO`. Si cambias algo en `index.html`, cópialo también ahí, cuidando esas líneas.
+- Las dos apps usan los mismos `app.js` y `styles.css`. `pedidos/index.html` y `dueno/index.html` tienen el mismo HTML; solo cambian el título, el manifest, el ícono y `window.APP_MODO`. Si cambias algo en una, cópialo también en la otra, cuidando esas líneas.
 - **Precio del garrafón**: app del dueño → Ajustes → Precio por defecto.
 - **Productos**: en `index.html`, busca `<select name="producto">` y cambia las líneas `<option>`.
 - **Colores**: al inicio de `styles.css` (`--marino`, `--azul`, `--celeste`).
 - **Textos de los stickers**: en `app.js`, busca `const STICKERS`.
-- **Centro del mapa**: en `app.js`, `CENTRO_GT`.
+- **Centro del mapa**: en `app.js`, `CENTRO_GT` (ahora Panajachel, Sololá) y `ZOOM_INICIO`.
 - Después de subir cambios, cierra y vuelve a abrir la app en el celular.
 
 ## Créditos
