@@ -91,10 +91,23 @@ function leerUsuarios() {
   return lista;
 }
 
+// Después de 5 PIN equivocados, ese usuario queda bloqueado 15 minutos (protege contra adivinar el PIN).
+const MAX_INTENTOS = 5;
+const BLOQUEO_SEGUNDOS = 15 * 60;
+
 function autenticar(usuario, pin) {
   if (!usuario || !pin) return null;
-  const u = leerUsuarios().find((x) => x.usuario === String(usuario).trim().toLowerCase());
-  if (!u || !u.activo || u.pin_cifrado !== cifrar(u.usuario, pin)) return null;
+  const nombre = String(usuario).trim().toLowerCase();
+  const cache = CacheService.getScriptCache();
+  const llave = 'fallos:' + nombre;
+  const fallos = Number(cache.get(llave) || 0);
+  if (fallos >= MAX_INTENTOS) throw new Error('Demasiados intentos con PIN equivocado. Espera 15 minutos.');
+  const u = leerUsuarios().find((x) => x.usuario === nombre);
+  if (!u || !u.activo || u.pin_cifrado !== cifrar(u.usuario, pin)) {
+    cache.put(llave, String(fallos + 1), BLOQUEO_SEGUNDOS);
+    return null;
+  }
+  if (fallos) cache.remove(llave);
   return u;
 }
 

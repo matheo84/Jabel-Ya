@@ -666,6 +666,8 @@
 
   /* ---------- Entrar, cuenta y roles ---------- */
   const fe = $('#form-entrar');
+  // Dirección del Apps Script de Jabel Ya´ (se llena sola en la pantalla de entrar).
+  const API_PREDETERMINADA = 'https://script.google.com/macros/s/AKfycbwsRz7KDfIXbmhIzPFyDd6-YLuBvgV8UQtUarj99NoXTA37zWo7y7AAbJzFhc1qPuqwCA/exec';
   const apiEnlace = new URLSearchParams(location.search).get('api') || '';
 
   function aplicarRol() {
@@ -674,7 +676,7 @@
   }
 
   function prepararEntrar() {
-    const url = apiEnlace || sheets.url || '';
+    const url = apiEnlace || sheets.url || API_PREDETERMINADA;
     fe.url.value = url;
     fe.usuario.value = sheets.usuario || '';
     fe.pin.value = '';

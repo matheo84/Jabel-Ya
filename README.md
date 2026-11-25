@@ -93,7 +93,7 @@ Se hace **una sola vez**, desde la computadora, con la cuenta de Google de la pu
    const ADMIN_NOMBRE = 'Juan';
    const ADMIN_PIN = '1234';
    ```
-   **Cambia el PIN** por uno tuyo (4 a 8 números). Ese es tu acceso de administrador.
+   **Cambia el PIN** por uno tuyo. Usa **6 números o más**, porque la dirección del script queda en el código público de GitHub. Ese es tu acceso de administrador.
 5. Toca **Guardar** (💾).
 
 ### Dar permisos
@@ -115,6 +115,8 @@ Se hace **una sola vez**, desde la computadora, con la cuenta de Google de la pu
 1. Abre tu app (`https://TU_USUARIO.github.io/jabel-ya/`).
 2. Escribe tu usuario (`juan`), tu PIN, y en **Dirección de Google Sheets** pega la URL del script.
 3. Toca **Entrar**. Si ya tenías pedidos en ese celular, se suben a la hoja.
+
+> La dirección del script de Jabel Ya´ ya viene escrita en `app.js` (`API_PREDETERMINADA`), así que en la pantalla de entrar solo hace falta usuario y PIN. Si algún día publicas el script con otra URL, cámbiala ahí.
 
 ---
 
@@ -172,6 +174,14 @@ Si hay otro administrador, que te cambie el PIN desde **Usuarios**. Si no: en la
 | Usuario o PIN incorrecto | Revisa el usuario (en minúsculas) y el PIN. El administrador lo puede cambiar en Usuarios. |
 | El script no respondió bien | En “Quién tiene acceso” no quedó **Cualquier usuario**, o la URL no termina en `/exec`. |
 | Sin conexión | Revisa el internet. Los cambios se guardan y se suben cuando vuelva la señal. |
+| Demasiados intentos con PIN equivocado | Se pusieron 5 PIN malos seguidos. Ese usuario queda bloqueado 15 minutos para que nadie pueda adivinar el PIN. |
+| Al abrir la URL del script sale la página para iniciar sesión de Google | En **Quién tiene acceso** quedó “Solo yo” o “Cualquier usuario con cuenta de Google”. Cámbialo a **Cualquier usuario** (ver abajo). |
+
+### Revisar que el script quedó público
+
+Abre la URL del script (la que termina en `/exec`) en una ventana de incógnito. Debe mostrar solo este texto:
+`{"ok":true,"app":"jabelya","mensaje":"La API de Jabel Ya´ está funcionando."}`
+Si te pide iniciar sesión con Google: **Implementar → Gestionar implementaciones → ✏️ Editar → Quién tiene acceso: Cualquier usuario → Versión: Nueva versión → Implementar**.
 
 ---
 
