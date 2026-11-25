@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#050a30">
+  <meta name="description" content="Pedidos y entregas de la purificadora de agua Jabel Ya´">
+  <title>Jabel Ya´ Pedidos</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,500;0,700;0,800;1,900&family=Playfair+Display:wght@700&display=swap">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <img class="logo" src="assets/gota.png" alt="">
+      <div>
+        <p class="pre">Purificadora</p>
+        <h1>JABEL <em>ya´</em></h1>
+        <p>Agua pura, vida sana · <a href="tel:+50242372018">4237 2018</a></p>
+      </div>
+    </div>
+    <button class="sync" id="sync" hidden></button>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <main>
+    <!-- ENTRAR -->
+    <section class="view" id="v-entrar" hidden>
+      <img class="logo-grande" src="assets/logo.jpg" alt="Purificadora Jabel Ya´, agua pura, vida sana">
+      <h2>Entrar</h2>
+      <form id="form-entrar" class="form">
+        <label>Usuario <input name="usuario" autocomplete="username" autocapitalize="none" required placeholder="juan"></label>
+        <label>PIN <input name="pin" type="password" inputmode="numeric" autocomplete="current-password" required placeholder="••••"></label>
+        <details id="entrar-avanzado">
+          <summary>Dirección de Google Sheets</summary>
+          <label>Dirección de la aplicación web (termina en /exec)
+            <input name="url" type="url" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec"></label>
+        </details>
+        <button class="btn primario">Entrar</button>
+        <p class="hint" id="entrar-error" role="alert"></p>
+      </form>
+      <p class="hint centro"><button class="link" id="btn-local">Usar solo en este celular, sin cuenta</button></p>
+    </section>
+
+    <!-- PEDIDOS -->
+    <section class="view" id="v-pedidos">
+      <div class="banner" id="banner-instalar" hidden>
+        <img src="icons/icon-192.png" alt="">
+        <div><b>Instala Jabel Ya´ en tu celular</b><br><span class="hint">Se abre como app, con tu logo, sin la barra del navegador.</span></div>
+        <button class="btn primario chico" data-instalar>Instalar</button>
+        <button class="btn chico" id="btn-banner-no" aria-label="Ahora no">✕</button>
+      </div>
+      <div class="toolbar">
+        <div class="seg" role="tablist">
+          <button class="on" data-filtro="pendiente">Pendientes</button>
+          <button data-filtro="entregado">Entregados</button>
+          <button data-filtro="cobrar">Por cobrar</button>
+          <button data-filtro="todos">Todos</button>
+        </div>
+        <input type="search" id="buscar" placeholder="Buscar cliente o dirección">
+      </div>
+      <ul class="lista" id="lista-pedidos"></ul>
+    </section>
+
+    <!-- NUEVO PEDIDO -->
+    <section class="view" id="v-nuevo" hidden>
+      <div id="frecuentes-box">
+        <h2>Repetir pedido</h2>
+        <p class="hint">Clientes frecuentes: un toque y queda registrado igual que la última vez.</p>
+        <div class="frecuentes" id="frecuentes"></div>
+      </div>
+      <h2 id="titulo-pedido">Nuevo pedido</h2>
+      <form id="form-pedido" class="form">
+        <input type="hidden" name="id">
+        <label>Cliente
+          <input name="clienteNombre" list="dl-clientes" required autocomplete="off" placeholder="Nombre del cliente">
+          <datalist id="dl-clientes"></datalist>
+        </label>
+        <p class="hint" id="hint-cliente"></p>
+        <div class="row2">
+          <label>Teléfono <input name="telefono" type="tel" inputmode="tel" placeholder="5555 5555"></label>
+          <label>Zona / colonia <input name="zona" placeholder="Zona 1"></label>
+        </div>
+        <label>Dirección <input name="direccion" placeholder="Calle, número de casa"></label>
+        <label>Referencia <input name="referencia" placeholder="Portón negro, frente a la tienda"></label>
+        <div class="row3">
+          <label>Producto
+            <select name="producto">
+              <option>Garrafón 5 gal (recarga)</option>
+              <option>Garrafón 5 gal (nuevo)</option>
+              <option>Bolsas de agua (fardo)</option>
+              <option>Botellas (paquete)</option>
+            </select>
+          </label>
+          <label>Cantidad <input name="cantidad" type="number" min="1" value="1" required inputmode="numeric"></label>
+          <label>Precio c/u (Q) <input name="precio" type="number" min="0" step="0.5" required inputmode="decimal"></label>
+        </div>
+        <p class="total">Total: <strong id="total">Q0.00</strong></p>
+        <label id="lbl-repartidor" hidden>Repartidor
+          <select name="repartidor"></select>
+        </label>
+        <label>Notas <textarea name="notas" rows="2" placeholder="Paga con billete de 100, llamar antes…"></textarea></label>
+        <div class="acciones">
+          <button type="submit" class="btn primario">Guardar pedido</button>
+          <button type="button" class="btn" id="cancelar-pedido">Cancelar</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- MAPA -->
+    <section class="view" id="v-mapa" hidden>
+      <div id="mapa"></div>
+      <div class="map-ctrl">
+        <button class="btn primario" id="btn-ubicarme">📍 Mi ubicación</button>
+        <label class="chk"><input type="checkbox" id="chk-todos"> Ver todas las casas</label>
+      </div>
+      <p class="map-aviso" id="map-aviso" hidden></p>
+    </section>
+
+    <!-- CLIENTES -->
+    <section class="view" id="v-clientes" hidden>
+      <div class="toolbar">
+        <input type="search" id="buscar-cliente" placeholder="Buscar cliente">
+        <button class="btn primario solo-admin" id="btn-nuevo-cliente">+ Cliente</button>
+      </div>
+      <ul class="lista" id="lista-clientes"></ul>
+    </section>
+
+    <!-- REPORTES -->
+    <section class="view" id="v-reportes" hidden>
+      <div class="toolbar">
+        <div class="seg" id="rep-periodo">
+          <button class="on" data-p="dia">Día</button>
+          <button data-p="semana">Semana</button>
+          <button data-p="mes">Mes</button>
+        </div>
+        <div class="nav-fecha">
+          <button class="btn chico" id="rep-ant" aria-label="Anterior">‹</button>
+          <b id="rep-titulo"></b>
+          <button class="btn chico" id="rep-sig" aria-label="Siguiente">›</button>
+        </div>
+      </div>
+      <div class="kpis" id="rep-kpis"></div>
+      <h3>Ventas</h3>
+      <div class="barras" id="rep-barras"></div>
+      <div class="dos-col">
+        <div><h3>Por producto</h3><table class="tabla" id="rep-productos"></table></div>
+        <div><h3>Por repartidor</h3><table class="tabla" id="rep-repartidores"></table></div>
+      </div>
+      <h2>Cobros pendientes</h2>
+      <p class="hint" id="rep-fiado-total"></p>
+      <ul class="lista" id="rep-fiados"></ul>
+    </section>
+
+    <!-- AJUSTES -->
+    <section class="view" id="v-ajustes" hidden>
+      <h2>Ajustes</h2>
+      <form id="form-ajustes" class="form solo-admin">
+        <label>Precio por defecto del garrafón (Q) <input name="precio" type="number" step="0.5" min="0"></label>
+
+        <button class="btn primario">Guardar ajustes</button>
+      </form>
+      <h2>Instalar en el celular</h2>
+      <div class="acciones">
+        <button class="btn primario" data-instalar id="btn-instalar">📲 Instalar app</button>
+      </div>
+      <p class="hint" id="instalar-ayuda"></p>
+
+      <h2>Mi cuenta</h2>
+      <div id="cuenta"></div>
+
+      <div id="usuarios-box" class="solo-admin" hidden>
+        <h2>Usuarios</h2>
+        <p class="hint">El repartidor entra con su usuario y PIN, y solo ve los pedidos que le asignes.</p>
+        <ul class="lista" id="lista-usuarios"></ul>
+        <form id="form-usuario" class="form tarjeta">
+          <h3 id="usuario-titulo">Agregar usuario</h3>
+          <div class="row2">
+            <label>Usuario <input name="usuario" required autocapitalize="none" pattern="[a-zA-Z0-9._\-]{3,20}" placeholder="pedro"></label>
+            <label>Nombre <input name="nombre" placeholder="Pedro"></label>
+          </div>
+          <div class="row2">
+            <label>Rol
+              <select name="rol"><option value="repartidor">Repartidor</option><option value="admin">Administrador</option></select>
+            </label>
+            <label>PIN (4 a 8 números) <input name="pin" inputmode="numeric" pattern="\d{4,8}" autocomplete="new-password" placeholder="Déjalo vacío para no cambiarlo"></label>
+          </div>
+          <label class="chk"><input type="checkbox" name="activo" checked> Activo</label>
+          <div class="acciones">
+            <button class="btn primario">Guardar usuario</button>
+            <button type="button" class="btn" id="btn-usuario-nuevo">Limpiar</button>
+          </div>
+        </form>
+        <button class="btn" id="btn-enlace">Copiar enlace para el repartidor</button>
+      </div>
+
+      <div class="solo-admin">
+      <h2>Copia de seguridad</h2>
+      <p class="hint">Los datos se guardan en este celular. Descarga una copia seguido y pásala a otro celular con “Importar”.</p>
+      <div class="acciones">
+        <button class="btn" id="btn-exportar">Descargar copia</button>
+        <label class="btn">Importar copia <input type="file" id="in-importar" accept="application/json,.json" hidden></label>
+      </div>
+      </div>
+      <img class="logo-grande" src="assets/logo.jpg" alt="Purificadora Jabel Ya´, agua pura, vida sana. WhatsApp 4237 2018">
+    </section>
+  </main>
+
+  <nav class="tabs">
+    <button data-view="pedidos" class="on"><span>🧾</span>Pedidos</button>
+    <button data-view="nuevo" class="solo-admin"><span>➕</span>Nuevo</button>
+    <button data-view="mapa"><span>🗺️</span>Mapa</button>
+    <button data-view="clientes"><span>🏠</span>Clientes</button>
+    <button data-view="reportes" class="solo-admin"><span>📊</span>Reportes</button>
+    <button data-view="ajustes"><span>⚙️</span>Ajustes</button>
+  </nav>
+
+  <!-- Ficha de cliente (diálogo) -->
+  <dialog id="dlg-cliente">
+    <form id="form-cliente" class="form" method="dialog">
+      <h2>Ficha de la casa</h2>
+      <input type="hidden" name="id">
+      <label>Nombre <input name="nombre" required></label>
+      <div class="row2">
+        <label>Teléfono <input name="telefono" type="tel" inputmode="tel"></label>
+        <label>Zona / colonia <input name="zona"></label>
+      </div>
+      <label>Dirección <input name="direccion"></label>
+      <label>Referencia <input name="referencia"></label>
+      <label class="chk solo-admin"><input type="checkbox" name="frecuente"> ⭐ Cliente frecuente (aparece en “Repetir pedido”)</label>
+      <fieldset class="gps">
+        <legend>Punto GPS de la casa</legend>
+        <p id="gps-texto" class="hint">Sin ubicación guardada.</p>
+        <div class="acciones">
+          <button type="button" class="btn primario" id="btn-gps">📍 Guardar mi ubicación actual</button>
+          <button type="button" class="btn" id="btn-gps-mapa">Elegir en el mapa</button>
+        </div>
+        <div id="mini-mapa" hidden></div>
+      </fieldset>
+      <fieldset>
+        <legend>Fotos de la casa</legend>
+        <div class="fotos" id="fotos"></div>
+        <label class="btn">📷 Tomar foto
+          <input type="file" id="in-foto" accept="image/*" capture="environment" hidden>
+        </label>
+      </fieldset>
+      <div class="acciones">
+        <button type="button" class="btn primario" id="btn-guardar-cliente">Guardar</button>
+        <button type="button" class="btn solo-admin" id="btn-pedido-cliente">Repetir pedido</button>
+        <button type="button" class="btn" id="btn-cerrar-cliente">Cerrar</button>
+        <button type="button" class="btn peligro solo-admin" id="btn-borrar-cliente">Borrar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-foto" class="dlg-foto">
+    <img id="foto-grande" alt="Foto de la casa">
+    <div class="acciones">
+      <button class="btn peligro" id="btn-borrar-foto">Borrar foto</button>
+      <button class="btn" id="btn-cerrar-foto">Cerrar</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-entrega">
+    <h2>¿Cómo pagó?</h2>
+    <p id="entrega-texto"></p>
+    <div class="acciones columna">
+      <button class="btn ok" id="entrega-pagado">💵 Pagó</button>
+      <button class="btn" id="entrega-fiado">📒 Queda fiado</button>
+      <button class="btn" id="entrega-cancelar">Cancelar</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-confirmar">
+    <p id="confirmar-texto"></p>
+    <div class="acciones">
+      <button class="btn primario" id="confirmar-si">Sí</button>
+      <button class="btn" id="confirmar-no">No</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-aviso" class="dlg-aviso">
+    <h2 id="aviso-titulo">Avisar al cliente</h2>
+    <p class="hint" id="aviso-para"></p>
+    <img id="aviso-sticker" class="sticker-grande" alt="">
+    <div class="stickers" id="stickers"></div>
+    <textarea id="aviso-texto" rows="3" aria-label="Mensaje"></textarea>
+    <div class="acciones">
+      <button class="btn primario" id="btn-compartir">Enviar sticker y mensaje</button>
+      <a class="btn ok" id="btn-whats" target="_blank" rel="noopener">WhatsApp (solo texto)</a>
+      <button class="btn" id="btn-cerrar-aviso">Cerrar</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="db.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

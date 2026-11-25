@@ -1,0 +1,16 @@
+{
+  "name": "Jabel Ya´ Pedidos",
+  "short_name": "Jabel Ya´",
+  "description": "Pedidos, entregas y mapa del repartidor de la purificadora Jabel Ya´",
+  "lang": "es-GT",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050a30",
+  "theme_color": "#050a30",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
